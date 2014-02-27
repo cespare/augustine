@@ -98,14 +98,43 @@ func (d *DB) Get(id uint64) (doc *Doc, err error) {
 	return doc, nil
 }
 
+func (d *DB) Search(query []byte) []*Doc {
+	tokenReader := d.tokenizer(bytes.NewBuffer(query))
+	var terms []string
+	for {
+		tok, err := tokenReader.ReadToken()
+		if err != nil {
+			break
+		}
+		terms = append(terms, d.normalizer.Normalize(tok)...)
+	}
+	postings := d.ftsIndex.Search(terms)
+	var results []*Doc
+	var prevID key
+	for _, p := range postings {
+		if prevID > 0 && p.docID == prevID {
+			continue
+		}
+		prevID = p.docID
+		val, err := d.b.Get(bDoc, p.docID.Bytes())
+		if err != nil {
+			continue
+		}
+		var doc Doc
+		if err := doc.UnmarshalBinary(val); err != nil {
+			continue
+		}
+		results = append(results, &doc)
+	}
+	return results
+}
+
 // index adds doc's Text field to the search index.
 func (d *DB) index(id key, doc *Doc) {
 	tokenReader := d.tokenizer(bytes.NewBuffer(doc.Text))
 	var pos int64
 	for {
 		tok, err := tokenReader.ReadToken()
-		fmt.Printf("\033[01;34m>>>> tok: %v\x1B[m\n", tok)
-		fmt.Printf("\033[01;34m>>>> err: %v\x1B[m\n", err)
 		if err != nil {
 			// Right now this can only arise from EOF.
 			return

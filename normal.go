@@ -12,7 +12,7 @@ type simpleNormalizer struct {
 	badChar [256]bool
 }
 
-const simpleBadChars = `!@#$%^&*()_+-={}[]:";'<>,.` + "`"
+const simpleBadChars = `!@#$%^&*()_+-={}[]:";'<>,./?` + "`"
 
 func NewSimpleNormalizer() Normalizer {
 	n := new(simpleNormalizer)
